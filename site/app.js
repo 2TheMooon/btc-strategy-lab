@@ -134,9 +134,7 @@ function renderPaper() {
   if (!P) return;
   const cap = P.start_capital;
   $("#paper-lead").innerHTML = tpl(U("paper_lead"), { cap: nf(cap), date: P.start_date, price: nf(Math.round(P.current_price)) });
-  const anyOpen = P.strategies.some(s => s.summary.position);
-  $("#paper-warn").innerHTML = U("paper_warn_sim") + (anyOpen ? "" : U("paper_warn_cash")) +
-    tpl(U("paper_warn_upd"), { utc: P.last_run_utc, d: P.last_daily_close, h: P.last_hourly_close });
+  $("#paper-warn").innerHTML = U("paper_warn_sim") + tpl(U("paper_warn_upd"), { utc: P.last_run_utc });
 
   const pcard = (s, isBench) => {
     const sm = s.summary, r = sm.total_return;
