@@ -1,6 +1,6 @@
 """
-Загрузка исторических данных BTC/USDT с Binance за последние 5 лет.
-Сохраняет дневные (1d) и часовые (1h) свечи в папку data/.
+Download historical BTC/USDT data from Binance for the last 5 years.
+Saves daily (1d) and hourly (1h) candles into the data/ folder.
 """
 import time
 import csv
@@ -20,7 +20,7 @@ START_MS = NOW_MS - int(YEARS * 365.25 * 24 * 3600 * 1000)
 
 
 def fetch_klines(symbol, interval, start_ms, end_ms):
-    """Постранично тянем свечи forward от start_ms до end_ms (limit=1000)."""
+    """Page through candles forward from start_ms to end_ms (limit=1000)."""
     rows = []
     cur = start_ms
     while cur < end_ms:
@@ -41,7 +41,7 @@ def fetch_klines(symbol, interval, start_ms, end_ms):
                 print(f"  retry {attempt+1} ({e})")
                 time.sleep(2)
         else:
-            raise RuntimeError("Не удалось получить данные после 5 попыток")
+            raise RuntimeError("Failed to fetch data after 5 attempts")
         if not batch:
             break
         rows.extend(batch)
@@ -57,7 +57,7 @@ def fetch_klines(symbol, interval, start_ms, end_ms):
 
 
 def save_csv(rows, path):
-    """Сохраняем колонки: time(ms), open, high, low, close, volume."""
+    """Save columns: time(ms), open, high, low, close, volume."""
     seen = set()
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
@@ -72,10 +72,10 @@ def save_csv(rows, path):
 
 
 for interval in ("1d", "1h"):
-    print(f"Загружаю {interval} ...")
+    print(f"Fetching {interval} ...")
     rows = fetch_klines(SYMBOL, interval, START_MS, NOW_MS)
     path = os.path.join(OUT_DIR, f"btc_{interval}.csv")
     n = save_csv(rows, path)
-    print(f"  -> {n} свечей сохранено в {path}")
+    print(f"  -> {n} candles saved to {path}")
 
-print("Готово.")
+print("Done.")

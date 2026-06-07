@@ -1,5 +1,5 @@
-"""Превращает results.json в site/data.js (window.RESULTS = {...}),
-чтобы сайт открывался двойным кликом по index.html без локального сервера."""
+"""Turn results.json into site/data.js (window.RESULTS = {...}),
+so the site opens by double-clicking index.html without a local server."""
 import os
 import json
 
@@ -15,4 +15,4 @@ with open(dst, "w", encoding="utf-8") as f:
     f.write(data)
     f.write(";\n")
 
-print(f"Записано {dst} ({os.path.getsize(dst)//1024} КБ)")
+print(f"Wrote {dst} ({os.path.getsize(dst)//1024} KB)")

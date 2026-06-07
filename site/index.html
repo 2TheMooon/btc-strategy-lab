@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BTC: подбор торговой стратегии за 5 лет</title>
+<title>BTC Strategy Lab</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,154 +11,135 @@
 <header class="topbar">
   <div class="brand">₿ <span>BTC Strategy Lab</span></div>
   <nav class="nav">
-    <a href="#method">Метод</a>
-    <a href="#chart">График</a>
-    <a href="#best">Лучшие</a>
-    <a href="#paper">📡 Живая торговля</a>
-    <a href="#overfit">Подгонка vs Реальность</a>
-    <a href="#surface">Карта подгонки</a>
-    <a href="#walkforward">Walk-forward</a>
-    <a href="#gallery">Все стратегии</a>
-    <a href="#table">Таблица</a>
-    <a href="#lessons">Выводы</a>
+    <a href="#method" data-i18n="ui.nav_method"></a>
+    <a href="#chart" data-i18n="ui.nav_chart"></a>
+    <a href="#best" data-i18n="ui.nav_best"></a>
+    <a href="#paper" data-i18n="ui.nav_paper"></a>
+    <a href="#overfit" data-i18n="ui.nav_overfit"></a>
+    <a href="#surface" data-i18n="ui.nav_surface"></a>
+    <a href="#walkforward" data-i18n="ui.nav_walkforward"></a>
+    <a href="#gallery" data-i18n="ui.nav_gallery"></a>
+    <a href="#table" data-i18n="ui.nav_table"></a>
+    <a href="#lessons" data-i18n="ui.nav_lessons"></a>
   </nav>
+  <select id="langSelect" class="lang" aria-label="Language"></select>
 </header>
 
 <section class="hero">
-  <h1>Какая стратегия лучше всего работала<br>на биткоине за&nbsp;5&nbsp;лет?</h1>
-  <p class="sub" id="hero-sub"></p>
+  <h1 data-i18n-html="ui.hero_title"></h1>
+  <p class="sub" data-i18n-html="ui.hero_sub"></p>
   <div class="hero-stats" id="hero-stats"></div>
-  <p class="hero-hint">Прокрутите вниз — или начните с раздела «Подгонка vs Реальность», это самое важное.</p>
+  <p class="hero-hint" data-i18n="ui.hero_hint"></p>
 </section>
 
 <main>
 
 <section id="method" class="block">
-  <h2>Что я сделал</h2>
-  <p class="lead" id="m-intro"></p>
+  <h2 data-i18n="ui.method_h"></h2>
+  <p class="lead" data-i18n-html="sec.intro"></p>
   <div class="cards2">
     <div class="card lens-fit">
-      <div class="card-tag">Взгляд 1</div>
-      <h3>📈 Подгонка под график</h3>
-      <p id="m-fit"></p>
+      <div class="card-tag" data-i18n="ui.lens1_tag"></div>
+      <h3 data-i18n="ui.lens1_h"></h3>
+      <p data-i18n-html="sec.fit"></p>
     </div>
     <div class="card lens-blind">
-      <div class="card-tag">Взгляд 2</div>
-      <h3>🙈 Вслепую (walk-forward)</h3>
-      <p id="m-blind"></p>
+      <div class="card-tag" data-i18n="ui.lens2_tag"></div>
+      <h3 data-i18n="ui.lens2_h"></h3>
+      <p data-i18n-html="sec.blind"></p>
     </div>
   </div>
-  <p class="note" id="m-nolook"></p>
+  <p class="note" data-i18n-html="sec.nolook"></p>
 </section>
 
 <section id="chart" class="block">
-  <h2>Биткоин за 5 лет</h2>
-  <p class="lead">Реальные дневные котировки BTC/USDT. Это график, под который мы будем «подгонять» стратегии —
-     и который мы будем «накладывать вслепую».</p>
-  <div class="chart-tools">
-    <button class="toggle" id="logToggle">Лог. шкала: выкл</button>
-  </div>
+  <h2 data-i18n="ui.chart_h"></h2>
+  <p class="lead" data-i18n-html="sec.chart_lead"></p>
+  <div class="chart-tools"><button class="toggle" id="logToggle"></button></div>
   <div class="chart-box"><canvas id="priceChart"></canvas></div>
   <div class="metric-strip" id="bh-strip"></div>
 </section>
 
 <section id="best" class="block">
-  <h2>Лучшие стратегии (по честному тесту вне выборки)</h2>
-  <p class="lead">Победители выбраны по коэффициенту Шарпа <b>walk-forward</b> — то есть по результату «вслепую»,
-     а не по красивой подгонке.</p>
+  <h2 data-i18n="ui.best_h"></h2>
+  <p class="lead" data-i18n-html="sec.best_lead"></p>
   <div class="cards2" id="best-cards"></div>
 </section>
 
 <section id="paper" class="block">
-  <h2>📡 Живая торговля: 3 стратегии на BTC</h2>
+  <h2 data-i18n="ui.paper_h"></h2>
   <p class="lead" id="paper-lead"></p>
   <div class="note" id="paper-warn"></div>
   <div class="cards3" id="paper-cards"></div>
-
-  <h3 style="margin-top:34px">Открытые сделки и общий профит</h3>
+  <h3 style="margin-top:34px" data-i18n="ui.paper_open_h"></h3>
   <div class="table-scroll"><table id="openTable"></table></div>
-
   <div class="chart-box" style="margin-top:20px"><canvas id="paperChart"></canvas></div>
   <div class="metric-strip" id="paper-meta"></div>
-
-  <h3 style="margin-top:30px">Журнал закрытых сделок</h3>
+  <h3 style="margin-top:30px" data-i18n="ui.paper_journal_h"></h3>
   <div class="table-scroll"><table id="tradesTable"></table></div>
   <p class="cap" id="trades-empty"></p>
 </section>
 
 <section id="overfit" class="block">
-  <h2>Подгонка против Реальности</h2>
-  <p class="lead" id="of-lead"></p>
-  <p class="note" id="champ-note"></p>
+  <h2 data-i18n="ui.overfit_h"></h2>
+  <p class="lead" data-i18n-html="sec.overfit_lead"></p>
+  <p class="note" data-i18n-html="sec.champ_note"></p>
   <div class="cards2" id="podgonka-champs"></div>
+  <div class="tabs" id="overfit-tabs"></div>
   <div class="chart-box tall"><canvas id="overfitChart"></canvas></div>
-  <p class="cap">Для каждой стратегии: коэффициент Шарпа при подгонке под весь график (светлый)
-     против результата вслепую / walk-forward (яркий). Где яркий столбик резко падает или уходит в минус —
-     там стратегия была переобучена.</p>
+  <p class="cap" data-i18n="ui.overfit_cap"></p>
 </section>
 
 <section id="surface" class="block">
-  <h2>Карта подгонки: кросс скользящих средних</h2>
-  <p class="lead" id="surf-note"></p>
-  <div class="heatmap-wrap"><div id="heatmap"></div></div>
-  <div class="heat-legend"><span>хуже</span><div class="heat-bar"></div><span>лучше (Sharpe)</span></div>
+  <h2 data-i18n="ui.surface_h"></h2>
+  <p class="lead" data-i18n-html="sec.surface_note"></p>
+  <div class="heatmap-wrap"><div id="heatmap"></div><p class="cap" id="surf-cap"></p></div>
+  <div class="heat-legend"><span data-i18n="ui.heat_worse"></span><div class="heat-bar"></div><span data-i18n="ui.heat_better"></span></div>
 </section>
 
 <section id="walkforward" class="block">
-  <h2>Как стратегию «накладывают» вслепую</h2>
-  <p class="lead" id="wf-lead"></p>
+  <h2 data-i18n="ui.wf_h"></h2>
+  <p class="lead" data-i18n-html="sec.folds_plain"></p>
   <div class="wf-pick" id="wf-pick"></div>
   <div class="cards2">
-    <div class="card">
-      <h3>Ожидание против реальности по шагам</h3>
-      <div class="chart-box"><canvas id="foldChart"></canvas></div>
-    </div>
-    <div class="card">
-      <h3>Журнал шагов walk-forward</h3>
-      <div class="table-scroll"><table id="foldTable"></table></div>
-    </div>
+    <div class="card"><h3 data-i18n="ui.wf_card1_h"></h3><div class="chart-box"><canvas id="foldChart"></canvas></div></div>
+    <div class="card"><h3 data-i18n="ui.wf_card2_h"></h3><div class="table-scroll"><table id="foldTable"></table></div></div>
   </div>
 </section>
 
 <section id="gallery" class="block">
-  <h2>Все стратегии: математика и результат</h2>
-  <p class="lead">Каждая стратегия — это формула, превращающая цену в сигнал «купить / выйти».
-     Ниже — идея простыми словами, математика, и две колонки результата.</p>
-  <div class="tabs">
-    <button class="tab active" data-tf="daily">Среднесрок (дневные)</button>
-    <button class="tab" data-tf="hourly">Дейтрейдинг (часовые)</button>
-  </div>
+  <h2 data-i18n="ui.gallery_h"></h2>
+  <p class="lead" data-i18n-html="ui.gallery_lead"></p>
+  <div class="tabs" id="gallery-tabs"></div>
   <p class="note" id="gallery-note"></p>
   <div id="gallery-grid" class="gallery"></div>
 </section>
 
 <section id="table" class="block">
-  <h2>Сводная таблица</h2>
-  <p class="lead">Все стратегии в одном месте. Клик по заголовку — сортировка.
-     <b>Все метрики посчитаны по честному тесту «вслепую» (walk-forward)</b> — это то, что считается по-настоящему.
-     Последняя колонка (оранжевая) — Шарп при подгонке, для сравнения.</p>
+  <h2 data-i18n="ui.table_h"></h2>
+  <p class="lead" data-i18n-html="ui.table_lead"></p>
   <div class="table-scroll"><table id="bigTable"></table></div>
 </section>
 
 <section id="lessons" class="block">
-  <h2>Главные выводы</h2>
+  <h2 data-i18n="ui.lessons_h"></h2>
   <div class="lessons" id="lessons"></div>
 </section>
 
 <section class="block disclaimer">
-  <h2>⚠️ Дисклеймер</h2>
-  <p id="disclaimer"></p>
+  <h2 data-i18n="ui.disc_h"></h2>
+  <p data-i18n-html="disclaimer"></p>
 </section>
 
 </main>
 
 <footer class="foot">
   <span id="foot-meta"></span>
-  <span>Источник данных: Binance · Движок бэктеста без заглядывания в будущее · Комиссия 0,1% за сделку</span>
+  <span data-i18n="ui.foot2"></span>
 </footer>
 
 <script src="vendor/chart.umd.min.js"></script>
-<script src="content.js"></script>
+<script src="i18n.js"></script>
 <script src="data.js"></script>
 <script src="paper.js"></script>
 <script src="app.js"></script>

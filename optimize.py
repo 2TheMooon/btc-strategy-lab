@@ -1,12 +1,12 @@
 """
-Подгонка (in-sample grid search) и walk-forward (вне выборки).
+Fitting (in-sample grid search) and walk-forward (out-of-sample).
 
-Идея двух взглядов:
-  1) ПОДГОНКА  — параметры выбираются по ВСЕЙ истории и на ней же оцениваются.
-     Это "подгонка под график": мы как будто видим будущее. Красиво, но обман.
-  2) WALK-FORWARD — на каждом шаге параметры выбираются ТОЛЬКО по прошлым данным
-     (train), затем торгуются на следующем, ещё НЕ виденном окне (test).
-     Тесты склеиваются в одну честную "вслепую" эквити. Это реальный результат.
+The idea of the two lenses:
+  1) FITTING     — parameters are chosen over the WHOLE history and scored on it too.
+     This is "fitting to the chart": as if we saw the future. Pretty, but a deception.
+  2) WALK-FORWARD — at each step parameters are chosen ONLY from past data (train),
+     then traded on the next, still UNSEEN window (test).
+     The tests are stitched into one honest "blind" equity. That is the real result.
 """
 import itertools
 import numpy as np
@@ -15,7 +15,7 @@ from engine import STRATEGIES, backtest, metrics, equity_from_net
 
 
 def build_grid(spec):
-    """spec: dict param->list. Возвращает список dict-комбинаций с фильтрами."""
+    """spec: dict param->list. Returns a list of dict combinations with filters."""
     keys = list(spec.keys())
     out = []
     for vals in itertools.product(*[spec[k] for k in keys]):
@@ -29,7 +29,7 @@ def build_grid(spec):
 
 
 def precompute_nets(df, key, grid, fee):
-    """Для каждой комбинации параметров считаем tpos и net по ВСЕЙ истории один раз."""
+    """For each parameter combo, compute tpos and net over the WHOLE history once."""
     fn = STRATEGIES[key]["fn"]
     close = df["close"]
     res = []
@@ -42,14 +42,14 @@ def precompute_nets(df, key, grid, fee):
 
 
 def _score(net_slice, min_pts=30):
-    """Целевая функция отбора параметров: годовой Sharpe (на срезе train)."""
+    """Parameter-selection objective: annualized Sharpe (on the train slice)."""
     if len(net_slice) < min_pts or net_slice.std() == 0:
         return -1e9
     return net_slice.mean() / net_slice.std()
 
 
 def in_sample_best(df, key, grid, fee, ppy):
-    """ПОДГОНКА: лучшая комбинация по всей истории + её метрики на всей истории."""
+    """FITTING: the best combo over the whole history + its metrics on the whole history."""
     close = df["close"]
     pre = precompute_nets(df, key, grid, fee)
     best = None
@@ -64,31 +64,31 @@ def in_sample_best(df, key, grid, fee, ppy):
 
 
 def walk_forward(df, key, grid, fee, ppy, train_init, test_step):
-    """WALK-FORWARD (вне выборки): расширяющийся train, фиксированный шаг test.
-    На каждом шаге выбираем параметры по train, торгуем их на test."""
+    """WALK-FORWARD (out-of-sample): expanding train, fixed test step.
+    At each step pick parameters on train, trade them on test."""
     close = df["close"]
     n = len(df)
-    pre = precompute_nets(df, key, grid, fee)  # считаем один раз, переиспользуем
+    pre = precompute_nets(df, key, grid, fee)  # compute once, reuse
     tpos_oos = pd.Series(0.0, index=df.index)
     folds = []
     start = train_init
     while start < n:
         end = start + test_step
-        if n - end < test_step:      # маленький хвост присоединяем к последнему окну
+        if n - end < test_step:      # absorb a small tail into the last window
             end = n
         end = min(end, n)
-        # отбор параметров по train = [0:start]
+        # select parameters on train = [0:start]
         best = None
         for params, tpos, net in pre:
             sc = _score(net.iloc[:start])
             if best is None or sc > best[0]:
                 best = (sc, params, tpos, net)
         score, params, btpos, bnet = best
-        # ожидаемый (на обучении) Sharpe выбранных параметров, годовой
+        # expected (training) Sharpe of the chosen parameters, annualized
         train_sharpe = float(score * np.sqrt(ppy)) if score > -1e8 else None
-        # фиксируем позиции этого фолда на окне test
+        # fix this fold's positions on the test window
         tpos_oos.iloc[start:end] = btpos.iloc[start:end].values
-        # метрики только на test-окне
+        # metrics on the test window only
         tm = metrics(bnet.iloc[start:end], btpos.iloc[start:end],
                      close.iloc[start:end], fee, ppy)
         folds.append({
@@ -101,7 +101,7 @@ def walk_forward(df, key, grid, fee, ppy, train_init, test_step):
             "test_sharpe": tm["sharpe"],
         })
         start = end
-    # склеенная честная эквити по фактическим позициям walk-forward
+    # stitched honest equity from the actual walk-forward positions
     oos_lo = train_init
     net_oos = backtest(close.iloc[oos_lo:], tpos_oos.iloc[oos_lo:], fee)
     m = metrics(net_oos, tpos_oos.iloc[oos_lo:], close.iloc[oos_lo:], fee, ppy)
@@ -118,7 +118,7 @@ def walk_forward(df, key, grid, fee, ppy, train_init, test_step):
 
 
 def optimization_surface(df, key, grid, fee, ppy):
-    """Карта результатов по всей истории — для визуализации подгонки (2 параметра)."""
+    """Result map over the whole history — to visualize fitting (2 parameters)."""
     fn = STRATEGIES[key]["fn"]
     close = df["close"]
     rows = []

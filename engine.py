@@ -1,22 +1,22 @@
 """
-Движок бэктеста БЕЗ заглядывания в будущее (no lookahead).
+No-lookahead backtest engine.
 
-Конвенция исполнения (стандартная векторная):
-  - На закрытии бара t стратегия решает целевую позицию tpos[t]
-    (индикаторы используют только данные <= t).
-  - В течение бара t+1 удерживается tpos[t]; доход = tpos[t] * r[t+1].
-  - Комиссия списывается в момент изменения позиции:
+Execution convention (standard vectorized):
+  - At the close of bar t the strategy decides the target position tpos[t]
+    (indicators use only data <= t).
+  - During bar t+1 we hold tpos[t]; return = tpos[t] * r[t+1].
+  - The fee is charged at the moment the position changes:
         cost[t] = |tpos[t] - tpos[t-1]| * fee
-  Это исключает заглядывание в будущее: решение в t -> доход в t+1.
+  This rules out lookahead: a decision at t -> a return at t+1.
 
-Позиции long/flat: tpos в {0, 1}. (Спот, без шортов — реалистично для розницы.)
+Long/flat positions: tpos in {0, 1}. (Spot, no shorts — realistic for retail.)
 """
 import numpy as np
 import pandas as pd
 
 
 # ----------------------------------------------------------------------------
-# Индикаторы
+# Indicators
 # ----------------------------------------------------------------------------
 def sma(s, n):
     return s.rolling(n).mean()
@@ -30,7 +30,7 @@ def rsi(s, n=14):
     delta = s.diff()
     up = delta.clip(lower=0)
     down = -delta.clip(upper=0)
-    # сглаживание Уайлдера
+    # Wilder smoothing
     roll_up = up.ewm(alpha=1 / n, adjust=False).mean()
     roll_down = down.ewm(alpha=1 / n, adjust=False).mean()
     rs = roll_up / roll_down.replace(0, np.nan)
@@ -62,8 +62,8 @@ def atr(df, n=14):
 
 
 def _hold(entry, exit_):
-    """Удержание позиции: вход по entry, держим пока не сработает exit_.
-    entry/exit_ — булевы Series; условия взаимоисключающие в наших стратегиях."""
+    """Hold a position: enter on `entry`, hold until `exit_` fires.
+    entry/exit_ are boolean Series; the conditions are mutually exclusive in our strategies."""
     raw = pd.Series(np.nan, index=entry.index)
     raw[entry.values] = 1.0
     raw[exit_.values] = 0.0
@@ -71,7 +71,7 @@ def _hold(entry, exit_):
 
 
 # ----------------------------------------------------------------------------
-# Стратегии: f(df, **params) -> целевая позиция tpos в {0,1}
+# Strategies: f(df, **params) -> target position tpos in {0,1}
 # ----------------------------------------------------------------------------
 def st_sma_cross(df, fast, slow):
     c = df["close"]
@@ -107,7 +107,7 @@ def st_boll_meanrev(df, n, k):
 
 def st_donchian(df, n):
     c = df["close"]
-    hi = df["high"].rolling(n).max().shift(1)   # канал ПРЕДЫДУЩИХ n баров
+    hi = df["high"].rolling(n).max().shift(1)   # channel of the PREVIOUS n bars
     lo = df["low"].rolling(n).min().shift(1)
     return _hold(c > hi, c < lo)
 
@@ -117,7 +117,7 @@ def st_momentum(df, n, thresh):
 
 
 def st_sma_trend_rsi(df, trend, n, low, high):
-    """Покупка на откате (RSI<low), но только при бычьем тренде (close>SMA(trend))."""
+    """Buy the dip (RSI<low), but only in a bullish trend (close>SMA(trend))."""
     c = df["close"]
     up = c > sma(c, trend)
     r = rsi(c, n)
@@ -126,72 +126,73 @@ def st_sma_trend_rsi(df, trend, n, low, high):
     return _hold(entry, exit_)
 
 
-# Реестр стратегий: ключ -> (функция, имя параметров, сетка, формула, описание)
+# Strategy registry: key -> (function, param names, grid, formula, description).
+# Display names live in the site i18n (site/i18n.js); these are fallbacks / for results.json.
 STRATEGIES = {
     "sma_cross": {
         "fn": st_sma_cross,
         "pnames": ["fast", "slow"],
-        "name": "Пересечение скользящих средних (SMA)",
-        "formula": "Long если SMA(fast) > SMA(slow), иначе вне рынка",
+        "name": "Moving-average cross (SMA)",
+        "formula": "Long if SMA(fast) > SMA(slow), else flat",
     },
     "ema_cross": {
         "fn": st_ema_cross,
         "pnames": ["fast", "slow"],
-        "name": "Пересечение экспоненциальных средних (EMA)",
-        "formula": "Long если EMA(fast) > EMA(slow), иначе вне рынка",
+        "name": "Exponential-MA cross (EMA)",
+        "formula": "Long if EMA(fast) > EMA(slow), else flat",
     },
     "macd": {
         "fn": st_macd,
         "pnames": ["fast", "slow", "signal"],
-        "name": "MACD (схождение/расхождение средних)",
-        "formula": "Long если линия MACD > сигнальной линии",
+        "name": "MACD (moving-average convergence/divergence)",
+        "formula": "Long if the MACD line > the signal line",
     },
     "rsi_meanrev": {
         "fn": st_rsi_meanrev,
         "pnames": ["n", "low", "high"],
-        "name": "RSI возврат к среднему",
-        "formula": "Покупка при RSI<low (перепроданность), выход при RSI>high",
+        "name": "RSI mean-reversion",
+        "formula": "Buy when RSI<low (oversold), exit when RSI>high",
     },
     "boll_breakout": {
         "fn": st_boll_breakout,
         "pnames": ["n", "k"],
-        "name": "Пробой полос Боллинджера",
-        "formula": "Покупка при close>верхней полосы, выход при возврате к средней",
+        "name": "Bollinger Band breakout",
+        "formula": "Buy when close>upper band, exit on return to the middle",
     },
     "boll_meanrev": {
         "fn": st_boll_meanrev,
         "pnames": ["n", "k"],
-        "name": "Возврат к среднему (Боллинджер)",
-        "formula": "Покупка при close<нижней полосы, выход при возврате к средней",
+        "name": "Mean-reversion (Bollinger)",
+        "formula": "Buy when close<lower band, exit on return to the middle",
     },
     "donchian": {
         "fn": st_donchian,
         "pnames": ["n"],
-        "name": "Пробой канала Дончиана (черепахи)",
-        "formula": "Покупка при пробое максимума n баров, выход при пробое минимума",
+        "name": "Donchian channel breakout (turtles)",
+        "formula": "Buy on break of the n-bar high, exit on break of the n-bar low",
     },
     "momentum": {
         "fn": st_momentum,
         "pnames": ["n", "thresh"],
-        "name": "Моментум (импульс цены)",
-        "formula": "Long если доходность за n баров > порога",
+        "name": "Momentum",
+        "formula": "Long if the return over n bars > threshold",
     },
     "trend_rsi": {
         "fn": st_sma_trend_rsi,
         "pnames": ["trend", "n", "low", "high"],
-        "name": "Откат по тренду (SMA-фильтр + RSI)",
-        "formula": "Покупка на откате RSI<low ТОЛЬКО при close>SMA(trend)",
+        "name": "Pullback in a trend (SMA filter + RSI)",
+        "formula": "Buy the dip RSI<low ONLY when close>SMA(trend)",
     },
 }
 
 
 # ----------------------------------------------------------------------------
-# Ядро бэктеста
+# Backtest core
 # ----------------------------------------------------------------------------
 def backtest(close, tpos, fee):
-    """Возвращает net-доходности (Series) для целевой позиции tpos."""
+    """Return net returns (Series) for the target position tpos."""
     r = close.pct_change().fillna(0.0)
-    held = tpos.shift(1).fillna(0.0)          # позиция, удерживаемая в течение бара t
+    held = tpos.shift(1).fillna(0.0)          # position held during bar t
     gross = held * r
     turn = (tpos - tpos.shift(1)).abs()
     turn.iloc[0] = abs(tpos.iloc[0])
@@ -205,8 +206,8 @@ def equity_from_net(net):
 
 
 def extract_trades(close, tpos, fee):
-    """Список доходностей сделок (round-trip), согласован с net-конвенцией:
-    вход по close в баре решения 0->1, выход по close в баре решения 1->0."""
+    """List of round-trip trade returns, consistent with the net convention:
+    enter at the close of the 0->1 decision bar, exit at the close of the 1->0 decision bar."""
     pos = tpos.values
     c = close.values
     trades = []
@@ -219,10 +220,10 @@ def extract_trades(close, tpos, fee):
         elif in_pos and pos[i] == 0:
             exit_px = c[i]
             gross = exit_px / entry_px - 1.0
-            netr = gross - 2.0 * fee  # комиссия вход+выход (аддитивно, как в backtest)
+            netr = gross - 2.0 * fee  # entry+exit fee (additive, as in backtest)
             trades.append(netr)
             in_pos = False
-    if in_pos:  # закрываем в конце по последней цене
+    if in_pos:  # close at the end at the last price
         gross = c[-1] / entry_px - 1.0
         netr = gross - 2.0 * fee
         trades.append(netr)
@@ -230,7 +231,7 @@ def extract_trades(close, tpos, fee):
 
 
 def metrics(net, tpos, close, fee, ppy):
-    """Сводные метрики стратегии."""
+    """Summary metrics for a strategy."""
     eq = equity_from_net(net)
     total = float(eq.iloc[-1] - 1.0)
     n = len(net)

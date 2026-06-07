@@ -1,6 +1,6 @@
 """
-Главный прогон: загружает данные, гоняет все стратегии в двух режимах
-(ПОДГОНКА и WALK-FORWARD) на дневных и часовых данных, пишет results.json.
+Main run: loads data, runs all strategies in two modes (FITTING and WALK-FORWARD)
+on daily and hourly data, and writes results.json.
 """
 import os
 import json
@@ -12,7 +12,7 @@ from optimize import build_grid, in_sample_best, walk_forward, optimization_surf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
-FEE = 0.001  # 0.1% за сделку (вход/выход) — реалистично для спота с проскальзыванием
+FEE = 0.001  # 0.1% per trade (entry/exit) — realistic for spot with slippage
 
 PPY = {"daily": 365, "hourly": 24 * 365}
 
@@ -26,7 +26,7 @@ def load(interval):
     return df
 
 
-# ---- Сетки параметров -------------------------------------------------------
+# ---- Parameter grids --------------------------------------------------------
 GRIDS_DAILY = {
     "sma_cross": {"fast": [5, 10, 15, 20, 30, 40, 50], "slow": [50, 75, 100, 125, 150, 200]},
     "ema_cross": {"fast": [5, 8, 10, 12, 15, 20, 25], "slow": [26, 40, 50, 75, 100, 150]},
@@ -57,7 +57,7 @@ WF = {
 
 
 def ser_to_obj(eq, daily_idx, ndigits=5):
-    """Сериализация эквити; часовую ресемплим до дневной для лёгкого графика."""
+    """Serialize equity; resample hourly down to daily for a light chart."""
     if not daily_idx:
         eq = eq.resample("1D").last().dropna()
     return {
@@ -90,7 +90,7 @@ def run_timeframe(tf, df, grids):
         grid = build_grid(spec)
         ins = in_sample_best(df, key, grid, FEE, ppy)
         wf = walk_forward(df, key, grid, FEE, ppy, **WF[tf])
-        # buy & hold на том же OOS-окне для честного сравнения
+        # buy & hold on the same OOS window for a fair comparison
         oos_lo = wf["oos_start"]
         bh_net, bh_m = buy_hold(df["close"].iloc[oos_lo:], FEE, ppy)
         meta = STRATEGIES[key]
@@ -113,7 +113,7 @@ def run_timeframe(tf, df, grids):
                 "bh_oos_sharpe": bh_m["sharpe"],
             },
         })
-        print(f"  [{tf}] {key}: подгонка Sharpe={ins['metrics']['sharpe']:.2f} "
+        print(f"  [{tf}] {key}: fitting Sharpe={ins['metrics']['sharpe']:.2f} "
               f"ret={ins['metrics']['total_return']*100:.0f}% | "
               f"walk-forward Sharpe={wf['metrics']['sharpe']:.2f} "
               f"ret={wf['metrics']['total_return']*100:.0f}% "
@@ -122,23 +122,23 @@ def run_timeframe(tf, df, grids):
 
 
 def main():
-    print("Загружаю данные...")
+    print("Loading data...")
     d = load("1d")
     h = load("1h")
-    print(f"  дневных={len(d)}  часовых={len(h)}")
-    print(f"  период: {d.index[0].date()} .. {d.index[-1].date()}")
+    print(f"  daily={len(d)}  hourly={len(h)}")
+    print(f"  period: {d.index[0].date()} .. {d.index[-1].date()}")
 
-    # buy & hold по всей истории (дневной)
+    # buy & hold over the whole history (daily)
     bh_net, bh_m = buy_hold(d["close"], FEE, PPY["daily"])
     from engine import equity_from_net
     bh_eq = equity_from_net(bh_net)
 
-    print("Дневные стратегии (среднесрок / ~раз в неделю):")
+    print("Daily strategies (medium-term / ~weekly):")
     daily = run_timeframe("daily", d, GRIDS_DAILY)
-    print("Часовые стратегии (дейтрейдинг):")
+    print("Hourly strategies (day trading):")
     hourly = run_timeframe("hourly", h, GRIDS_HOURLY)
 
-    # выбор лучших по walk-forward (вне выборки) Sharpe
+    # pick the best by walk-forward (out-of-sample) Sharpe
     def best_by_oos(lst):
         return max(lst, key=lambda s: (s["walkforward"]["metrics"]["sharpe"] or -9))["key"]
 
@@ -148,7 +148,7 @@ def main():
     best_weekly = best_by_oos(daily)
     best_daytrade = best_by_oos(hourly)
 
-    # карта подгонки для SMA-кросса (дневной) — наглядность оверфиттинга
+    # fitting map for the SMA cross (daily) — to illustrate overfitting
     surf = optimization_surface(d, "sma_cross", build_grid(GRIDS_DAILY["sma_cross"]), FEE, PPY["daily"])
 
     result = {
@@ -181,9 +181,9 @@ def main():
     path = os.path.join(HERE, "results.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(sanitize(result), f, ensure_ascii=False)
-    print(f"\nЗаписано: {path}  ({os.path.getsize(path)//1024} КБ)")
-    print(f"Лучшая недельная (вне выборки): {best_weekly}")
-    print(f"Лучшая дейтрейдинг (вне выборки): {best_daytrade}")
+    print(f"\nWrote: {path}  ({os.path.getsize(path)//1024} KB)")
+    print(f"Best weekly (out-of-sample): {best_weekly}")
+    print(f"Best day-trading (out-of-sample): {best_daytrade}")
 
 
 if __name__ == "__main__":

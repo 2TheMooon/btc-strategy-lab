@@ -1,21 +1,23 @@
 """
-ЖИВАЯ бумажная торговля (симуляция, НЕ реальные ордера) — старт с сегодняшнего дня.
+LIVE paper trading (simulation, NOT real orders) — starts from today.
 
-Три стратегии торгуют BTC параллельно, капитал $10 000 на каждую:
-  1) ПОДГОНКА   — Моментум 30/0.10            (дневные, без стопа)
-  2) ВСЛЕПУЮ    — MACD 12/26/9                (дневные, без стопа)
-  3) ДЕЙТРЕЙД   — Пробой канала Дончиана 48ч  (часовые, стоп-лосс 2.5×ATR(24))
-Плюс эталон Buy & Hold (с момента старта).
+Six strategies trade BTC in parallel, $10,000 each, in two variants (no stop / with stop)
+so we can compare whether a stop-loss helps or hurts:
+  momentum  (daily)   Momentum 30 / 10%         — no stop  /  ATR stop
+  macd      (daily)   MACD 12/26/9              — no stop  /  ATR stop
+  donchian  (hourly)  Donchian 48h breakout    — no stop  /  ATR stop
+Plus a Buy & Hold benchmark (since start).
 
-Состояние ведётся пошагово (paper_state.json): позиция, открытая сделка, журнал
-закрытых сделок, кривая капитала. На каждом запуске рутина:
-  - тянет свежие закрытые свечи и текущую цену;
-  - проверяет стоп-лосс (по минимумам часовых баров с момента входа);
-  - сверяет позицию с текущим сигналом, открывает/закрывает сделки по текущей цене;
-  - пишет открытые сделки и общий профит в site/paper.js (раздел сайта).
-Идемпотентно по времени: входы/выходы происходят при изменении сигнала/стопа.
+State is kept incrementally (paper_state.json): position, open trade, closed-trade log,
+equity curve. On every run the routine:
+  - fetches fresh closed candles and the current price;
+  - checks the stop-loss (against the lows of the bars since entry, on the strategy timeframe);
+  - reconciles the position with the current signal, opening/closing at the current price;
+  - writes open trades, the trade log and total profit to site/paper.js (site section).
 
-ВАЖНО: реальные ордера на бирже не выставляются. Это симуляция.
+Display text is localized on the site (i18n); here we only emit stable keys and numbers.
+
+IMPORTANT: no real exchange orders are placed. This is a simulation.
 """
 import sys
 import os
@@ -36,32 +38,30 @@ from engine import st_momentum, st_macd, st_donchian, atr
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "paper_state.json")
 OUT_JS = os.path.join(HERE, "site", "paper.js")
-SCHEMA = 3
+SCHEMA = 4
 
 FEE = 0.001
 CAPITAL = 10000.0
 DONCHIAN_N = 48
-ATR_N = 24
-ATR_K = 2.5
 
+# base, timeframe, stop on/off, color, signal fn, (atr period, atr multiple) for the stop
 STRATS = [
-    {"key": "fit", "label": "Подгонка · Моментум 30/0.10", "kind": "подгонка",
-     "tf": "daily", "params": "n=30, порог=10%", "color": "#f59e0b", "stop": False,
-     "fn": lambda df: st_momentum(df, 30, 0.10),
-     "stop_desc": "без стопа (выход по сигналу)"},
-    {"key": "blind", "label": "Вслепую · MACD 12/26/9", "kind": "вслепую",
-     "tf": "daily", "params": "12 / 26 / 9", "color": "#2dd4bf", "stop": False,
-     "fn": lambda df: st_macd(df, 12, 26, 9),
-     "stop_desc": "без стопа (выход по сигналу)"},
-    {"key": "donchian_h", "label": "Дейтрейд · Дончиан 48ч + стоп", "kind": "дейтрейдинг",
-     "tf": "hourly", "params": "канал 48ч", "color": "#a78bfa", "stop": True,
-     "fn": lambda df: st_donchian(df, DONCHIAN_N),
-     "stop_desc": f"стоп-лосс {ATR_K}×ATR({ATR_N})"},
+    {"key": "mom",    "base": "momentum", "tf": "daily",  "stop": False, "color": "#f59e0b",
+     "fn": lambda df: st_momentum(df, 30, 0.10)},
+    {"key": "mom_s",  "base": "momentum", "tf": "daily",  "stop": True,  "color": "#fbbf24",
+     "fn": lambda df: st_momentum(df, 30, 0.10), "atr_n": 14, "k": 3.0},
+    {"key": "macd",   "base": "macd",     "tf": "daily",  "stop": False, "color": "#2dd4bf",
+     "fn": lambda df: st_macd(df, 12, 26, 9)},
+    {"key": "macd_s", "base": "macd",     "tf": "daily",  "stop": True,  "color": "#5eead4",
+     "fn": lambda df: st_macd(df, 12, 26, 9), "atr_n": 14, "k": 3.0},
+    {"key": "don",    "base": "donchian", "tf": "hourly", "stop": False, "color": "#a78bfa",
+     "fn": lambda df: st_donchian(df, DONCHIAN_N)},
+    {"key": "don_s",  "base": "donchian", "tf": "hourly", "stop": True,  "color": "#c4b5fd",
+     "fn": lambda df: st_donchian(df, DONCHIAN_N), "atr_n": 24, "k": 2.5},
 ]
 
-
-# Источники данных с резервом: Binance часто блокирует IP облака (США),
-# поэтому пробуем зеркало data-vision, затем основной Binance, затем Kraken.
+# Data sources with fallback: Binance often geo-blocks cloud IPs (US), so we try the
+# data-vision mirror, then the main Binance, then Kraken.
 BINANCE_HOSTS = ["https://data-api.binance.vision", "https://api.binance.com", "https://api.binance.us"]
 SOURCE = {"name": "?"}
 
@@ -104,7 +104,7 @@ def klines(interval, limit):
         print("  -> fallback Kraken")
         raw = _kraken_klines(interval)
     now = int(time.time() * 1000)
-    raw = [k for k in raw if int(k[6]) < now]  # только закрытые свечи
+    raw = [k for k in raw if int(k[6]) < now]  # closed candles only
     df = pd.DataFrame({
         "time": [int(k[0]) for k in raw],
         "open": [float(k[1]) for k in raw], "high": [float(k[2]) for k in raw],
@@ -131,7 +131,7 @@ def new_strat_state():
 
 
 def step(st, cfg, dfd, dfh, cur_px, now_utc):
-    """Один шаг живой симуляции для одной стратегии."""
+    """One live step for a single strategy (no lookahead)."""
     df = dfh if cfg["tf"] == "hourly" else dfd
     sig = int(cfg["fn"](df).reindex(df.index).fillna(0.0).clip(0, 1).iloc[-1])
     now_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%S")
@@ -151,38 +151,37 @@ def step(st, cfg, dfd, dfh, cur_px, now_utc):
         st["position"] = 0
         st["open_trade"] = None
 
-    # 1) стоп-лосс (только пока в позиции и стоп задан) — по минимумам баров с входа
+    # 1) stop-loss (only while in position, if enabled) — against lows since entry
     if st["position"] == 1 and st["open_trade"] and st["open_trade"].get("stop_price"):
         ot = st["open_trade"]
-        entry_t = pd.Timestamp(ot["entry_ts"])
-        after = dfh[dfh.index > entry_t]
+        after = df[df.index > pd.Timestamp(ot["entry_ts"])]
         hit = after[after["low"] <= ot["stop_price"]]
         if len(hit):
-            close_trade(ot["stop_price"], str(hit.index[0]), "стоп")
-            st["armed"] = False  # после стопа ждём сброса сигнала
+            close_trade(ot["stop_price"], str(hit.index[0]), "stop")
+            st["armed"] = False  # require signal reset before re-entry
 
-    # 2) сверка с сигналом: вход/выход по ТЕКУЩЕЙ цене
+    # 2) reconcile with the signal: open/close at the current price
     if st["position"] == 1 and sig == 0:
-        close_trade(cur_px, now_iso, "сигнал")
+        close_trade(cur_px, now_iso, "signal")
     elif st["position"] == 0 and sig == 1 and st["armed"]:
         entry_equity = st["cash"]
         units = entry_equity * (1 - FEE) / cur_px
         stop_price = None
         if cfg["stop"]:
-            a = float(atr(dfh, ATR_N).iloc[-1])
-            stop_price = cur_px - ATR_K * a
+            a = float(atr(df, cfg["atr_n"]).iloc[-1])
+            stop_price = cur_px - cfg["k"] * a
         st["units"] = units
         st["cash"] = 0.0
         st["position"] = 1
         st["open_trade"] = {"entry_ts": now_iso, "entry_price": cur_px,
                             "entry_equity": entry_equity, "stop_price": stop_price}
 
-    # перевзвод стопа: после выхода ждём, пока сигнал снова станет 0, затем разрешаем вход
+    # re-arm: once flat and signal is 0 again, allow a fresh entry
     if st["position"] == 0 and sig == 0:
         st["armed"] = True
     st["last_signal"] = sig
 
-    # 3) отметка капитала
+    # 3) mark to market
     equity = st["cash"] + st["units"] * cur_px
     st["equity"].append({"t": now_iso, "e": round(equity, 2)})
     st["equity"] = st["equity"][-5000:]
@@ -213,9 +212,9 @@ def build_output(state, cur_px, now_utc, dfd, dfh):
                 "stop_pct": (sp / ot["entry_price"] - 1.0) if sp else None,
             }
         out_strats.append({
-            "key": cfg["key"], "label": cfg["label"], "kind": cfg["kind"],
-            "tf": "часовые" if cfg["tf"] == "hourly" else "дневные",
-            "params": cfg["params"], "color": cfg["color"], "stop_desc": cfg["stop_desc"],
+            "key": cfg["key"], "base": cfg["base"], "tf": cfg["tf"],
+            "has_stop": cfg["stop"], "color": cfg["color"],
+            "stop_atr_n": cfg.get("atr_n"), "stop_k": cfg.get("k"),
             "summary": {
                 "equity": round(equity, 2), "total_return": equity / CAPITAL - 1.0,
                 "total_pnl": round(equity - CAPITAL, 2),
@@ -225,25 +224,22 @@ def build_output(state, cur_px, now_utc, dfd, dfh):
                 "position": st["position"], "armed": st["armed"], "signal": st["last_signal"],
             },
             "open_trade": open_trade,
-            "trades": list(reversed(closed)),  # новые сверху
+            "trades": list(reversed(closed)),  # newest first
             "equity": st["equity"],
         })
-    # эталон buy & hold с момента старта
     bh0 = state["bh_start_price"]
     bh_eq = CAPITAL * (1 - FEE) * cur_px / bh0
-    bench = {"label": "BTC «купи и держи»", "color": "#64748b",
+    bench = {"key": "bh", "color": "#64748b",
              "summary": {"equity": round(bh_eq, 2), "total_return": bh_eq / CAPITAL - 1.0,
                          "total_pnl": round(bh_eq - CAPITAL, 2), "position": 1},
              "entry_price": round(bh0, 2), "equity": state.get("bh_equity", [])}
     return {
         "schema": SCHEMA, "start_date": state["start_date"], "start_run": state["start_run"],
-        "last_run": now_utc.astimezone().strftime("%Y-%m-%d %H:%M %Z"),
         "last_run_utc": now_utc.strftime("%Y-%m-%d %H:%M UTC"),
         "last_daily_close": str(dfd.index[-1].date()),
         "last_hourly_close": str(dfh.index[-1]),
         "fee": FEE, "start_capital": CAPITAL, "current_price": round(cur_px, 2),
-        "donchian_n": DONCHIAN_N, "atr_k": ATR_K, "atr_n": ATR_N,
-        "data_source": SOURCE["name"],
+        "donchian_n": DONCHIAN_N, "data_source": SOURCE["name"],
         "strategies": out_strats, "benchmark": bench,
     }
 
@@ -270,22 +266,21 @@ def main():
             state = json.load(open(STATE, encoding="utf-8"))
         except Exception:
             state = {}
-    if state.get("schema") != SCHEMA:  # старт заново с сегодняшнего дня
+    if state.get("schema") != SCHEMA:  # fresh start from today
         state = {
             "schema": SCHEMA,
             "start_date": now_utc.strftime("%Y-%m-%d"),
-            "start_run": now_utc.astimezone().strftime("%Y-%m-%d %H:%M %Z"),
+            "start_run": now_utc.strftime("%Y-%m-%d %H:%M UTC"),
             "bh_start_price": cur_px,
             "bh_equity": [],
             "strategies": {c["key"]: new_strat_state() for c in STRATS},
         }
-        print(f"[НОВЫЙ СТАРТ] {state['start_date']} цена входа эталона ${cur_px:.0f}")
+        print(f"[FRESH START] {state['start_date']} benchmark entry ${cur_px:.0f}")
     state.setdefault("bh_equity", [])
 
     for cfg in STRATS:
         step(state["strategies"][cfg["key"]], cfg, dfd, dfh, cur_px, now_utc)
 
-    # кривая капитала эталона buy & hold
     now_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%S")
     bh_eq = CAPITAL * (1 - FEE) * cur_px / state["bh_start_price"]
     state["bh_equity"].append({"t": now_iso, "e": round(bh_eq, 2)})
@@ -299,19 +294,15 @@ def main():
         json.dump(sane(out), f, ensure_ascii=False)
         f.write(";\n")
 
-    print(f"[{out['last_run']}] BTC ${cur_px:.0f}  старт {out['start_date']}")
+    print(f"[{out['last_run_utc']}] BTC ${cur_px:.0f}  start {out['start_date']}  source {SOURCE['name']}")
     for s in out["strategies"]:
         sm = s["summary"]
-        pos = "В РЫНКЕ" if sm["position"] else "в кэше"
-        ot = ""
-        if s["open_trade"]:
-            ot = f" | откр.сделка вход ${s['open_trade']['entry_price']:.0f} ({s['open_trade']['unreal_ret']*100:+.1f}%)"
-            if s["open_trade"]["stop_price"]:
-                ot += f" стоп ${s['open_trade']['stop_price']:.0f}"
-        print(f"  {s['label']:<34} профит {sm['total_pnl']:+.0f}$ ({sm['total_return']*100:+.1f}%)  "
-              f"{pos}  сделок:{sm['closed_trades']}{ot}")
+        pos = "LONG" if sm["position"] else "cash"
+        stop = "+stop" if s["has_stop"] else "     "
+        print(f"  {s['base']:<9}{stop}  profit {sm['total_pnl']:+8.0f}$ ({sm['total_return']*100:+5.1f}%)  "
+              f"{pos:<4}  closed:{sm['closed_trades']}")
     bm = out["benchmark"]["summary"]
-    print(f"  {'BTC купи и держи':<34} профит {bm['total_pnl']:+.0f}$ ({bm['total_return']*100:+.1f}%)")
+    print(f"  {'buy&hold':<14}  profit {bm['total_pnl']:+8.0f}$ ({bm['total_return']*100:+5.1f}%)")
 
 
 if __name__ == "__main__":
