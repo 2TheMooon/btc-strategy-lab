@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTC: подбор торговой стратегии за 5 лет</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">₿ <span>BTC Strategy Lab</span></div>
+  <nav class="nav">
+    <a href="#method">Метод</a>
+    <a href="#chart">График</a>
+    <a href="#best">Лучшие</a>
+    <a href="#paper">📡 Живая торговля</a>
+    <a href="#overfit">Подгонка vs Реальность</a>
+    <a href="#surface">Карта подгонки</a>
+    <a href="#walkforward">Walk-forward</a>
+    <a href="#gallery">Все стратегии</a>
+    <a href="#table">Таблица</a>
+    <a href="#lessons">Выводы</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>Какая стратегия лучше всего работала<br>на биткоине за&nbsp;5&nbsp;лет?</h1>
+  <p class="sub" id="hero-sub"></p>
+  <div class="hero-stats" id="hero-stats"></div>
+  <p class="hero-hint">Прокрутите вниз — или начните с раздела «Подгонка vs Реальность», это самое важное.</p>
+</section>
+
+<main>
+
+<section id="method" class="block">
+  <h2>Что я сделал</h2>
+  <p class="lead" id="m-intro"></p>
+  <div class="cards2">
+    <div class="card lens-fit">
+      <div class="card-tag">Взгляд 1</div>
+      <h3>📈 Подгонка под график</h3>
+      <p id="m-fit"></p>
+    </div>
+    <div class="card lens-blind">
+      <div class="card-tag">Взгляд 2</div>
+      <h3>🙈 Вслепую (walk-forward)</h3>
+      <p id="m-blind"></p>
+    </div>
+  </div>
+  <p class="note" id="m-nolook"></p>
+</section>
+
+<section id="chart" class="block">
+  <h2>Биткоин за 5 лет</h2>
+  <p class="lead">Реальные дневные котировки BTC/USDT. Это график, под который мы будем «подгонять» стратегии —
+     и который мы будем «накладывать вслепую».</p>
+  <div class="chart-tools">
+    <button class="toggle" id="logToggle">Лог. шкала: выкл</button>
+  </div>
+  <div class="chart-box"><canvas id="priceChart"></canvas></div>
+  <div class="metric-strip" id="bh-strip"></div>
+</section>
+
+<section id="best" class="block">
+  <h2>Лучшие стратегии (по честному тесту вне выборки)</h2>
+  <p class="lead">Победители выбраны по коэффициенту Шарпа <b>walk-forward</b> — то есть по результату «вслепую»,
+     а не по красивой подгонке.</p>
+  <div class="cards2" id="best-cards"></div>
+</section>
+
+<section id="paper" class="block">
+  <h2>📡 Живая торговля: 3 стратегии на BTC</h2>
+  <p class="lead" id="paper-lead"></p>
+  <div class="note" id="paper-warn"></div>
+  <div class="cards3" id="paper-cards"></div>
+
+  <h3 style="margin-top:34px">Открытые сделки и общий профит</h3>
+  <div class="table-scroll"><table id="openTable"></table></div>
+
+  <div class="chart-box" style="margin-top:20px"><canvas id="paperChart"></canvas></div>
+  <div class="metric-strip" id="paper-meta"></div>
+
+  <h3 style="margin-top:30px">Журнал закрытых сделок</h3>
+  <div class="table-scroll"><table id="tradesTable"></table></div>
+  <p class="cap" id="trades-empty"></p>
+</section>
+
+<section id="overfit" class="block">
+  <h2>Подгонка против Реальности</h2>
+  <p class="lead" id="of-lead"></p>
+  <p class="note" id="champ-note"></p>
+  <div class="cards2" id="podgonka-champs"></div>
+  <div class="chart-box tall"><canvas id="overfitChart"></canvas></div>
+  <p class="cap">Для каждой стратегии: коэффициент Шарпа при подгонке под весь график (светлый)
+     против результата вслепую / walk-forward (яркий). Где яркий столбик резко падает или уходит в минус —
+     там стратегия была переобучена.</p>
+</section>
+
+<section id="surface" class="block">
+  <h2>Карта подгонки: кросс скользящих средних</h2>
+  <p class="lead" id="surf-note"></p>
+  <div class="heatmap-wrap"><div id="heatmap"></div></div>
+  <div class="heat-legend"><span>хуже</span><div class="heat-bar"></div><span>лучше (Sharpe)</span></div>
+</section>
+
+<section id="walkforward" class="block">
+  <h2>Как стратегию «накладывают» вслепую</h2>
+  <p class="lead" id="wf-lead"></p>
+  <div class="wf-pick" id="wf-pick"></div>
+  <div class="cards2">
+    <div class="card">
+      <h3>Ожидание против реальности по шагам</h3>
+      <div class="chart-box"><canvas id="foldChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Журнал шагов walk-forward</h3>
+      <div class="table-scroll"><table id="foldTable"></table></div>
+    </div>
+  </div>
+</section>
+
+<section id="gallery" class="block">
+  <h2>Все стратегии: математика и результат</h2>
+  <p class="lead">Каждая стратегия — это формула, превращающая цену в сигнал «купить / выйти».
+     Ниже — идея простыми словами, математика, и две колонки результата.</p>
+  <div class="tabs">
+    <button class="tab active" data-tf="daily">Среднесрок (дневные)</button>
+    <button class="tab" data-tf="hourly">Дейтрейдинг (часовые)</button>
+  </div>
+  <p class="note" id="gallery-note"></p>
+  <div id="gallery-grid" class="gallery"></div>
+</section>
+
+<section id="table" class="block">
+  <h2>Сводная таблица</h2>
+  <p class="lead">Все стратегии в одном месте. Клик по заголовку — сортировка.
+     <b>Все метрики посчитаны по честному тесту «вслепую» (walk-forward)</b> — это то, что считается по-настоящему.
+     Последняя колонка (оранжевая) — Шарп при подгонке, для сравнения.</p>
+  <div class="table-scroll"><table id="bigTable"></table></div>
+</section>
+
+<section id="lessons" class="block">
+  <h2>Главные выводы</h2>
+  <div class="lessons" id="lessons"></div>
+</section>
+
+<section class="block disclaimer">
+  <h2>⚠️ Дисклеймер</h2>
+  <p id="disclaimer"></p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <span id="foot-meta"></span>
+  <span>Источник данных: Binance · Движок бэктеста без заглядывания в будущее · Комиссия 0,1% за сделку</span>
+</footer>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script src="content.js"></script>
+<script src="data.js"></script>
+<script src="paper.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
