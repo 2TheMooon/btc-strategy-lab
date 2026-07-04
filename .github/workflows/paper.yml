@@ -56,4 +56,5 @@ jobs:
           path: site
       - name: Deploy to Pages
         id: deploy
+        continue-on-error: true   # transient GitHub Pages hiccups shouldn't fail the run; data is already committed and the next hourly run redeploys
         uses: actions/deploy-pages@v4
